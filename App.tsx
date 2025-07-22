@@ -3,7 +3,7 @@ import mapboxgl from 'mapbox-gl';
 import { Card } from './components/ui/card';
 import { Badge } from './components/ui/badge';
 import { Button } from './components/ui/button';
-import { MapPin, Camera, Car, Clock, Users } from 'lucide-react';
+import { Camera, Car, Clock, Users } from 'lucide-react';
 import CCTVModal from './components/CCTVModal';
 
 // Types
@@ -68,8 +68,10 @@ mapboxgl.accessToken = 'pk.eyJ1Ijoic3lraW0wNTA4IiwiYSI6ImNtZDZvb3E1NzAyOWcybHB5N
 export default function App() {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
+  const markersAdded = useRef(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [selectedParking, setSelectedParking] = useState<ParkingLot | null>(null);
+  const [selectedCCTVId, setSelectedCCTVId] = useState<number | null>(null);
   const [isCCTVModalOpen, setIsCCTVModalOpen] = useState(false);
   const [selectedCCTV, setSelectedCCTV] = useState<CCTVCamera | null>(null);
 
@@ -87,116 +89,261 @@ export default function App() {
         maxZoom: 18  // 최대 줌 레벨 (3단계씩: 12, 15, 18)
       });
 
-      // 마커 추가 함수 (여러 이벤트에서 호출)
-      const addAllMarkers = () => {
-        console.log('마커 추가 시작 - 지도 상태:', {
-          mapExists: !!map.current,
-          isStyleLoaded: map.current?.isStyleLoaded(),
-          isLoaded: map.current?.loaded()
-        });
+            // Mapbox 내장 기능으로 마커 추가 (한 번만 실행)
+      const addMapboxMarkers = () => {
+        console.log('Mapbox 내장 마커 시스템으로 마커 추가 시작...');
 
-        if (!map.current) {
-          console.error('지도 객체가 없습니다');
+        if (!map.current || !map.current.isStyleLoaded()) {
+          console.log('지도 스타일이 아직 로드되지 않음');
+          return;
+        }
+
+        // 이미 마커가 추가되었다면 중복 실행 방지
+        if (markersAdded.current) {
+          console.log('마커가 이미 추가되어 있음 - 중복 실행 방지');
           return;
         }
 
         try {
-          // 세종시청 중심 마커 (노란색, 큰 크기)
-          console.log('세종시청 마커 생성 중...');
-          const centerMarker = new mapboxgl.Marker({ 
-            color: '#fbbf24', 
-            scale: 1.5 
-          })
-            .setLngLat([127.288955, 36.479748])
-            .setPopup(new mapboxgl.Popup().setHTML(
-              '<div style="color: #1f2937; font-weight: 600;">세종시청</div>'
-            ))
-            .addTo(map.current!);
-          
-          console.log('✅ 세종시청 마커 추가 완료:', [127.288955, 36.479748]);
+          // GeoJSON 데이터 준비
+          const geojsonData: any = {
+            type: 'FeatureCollection' as const,
+            features: [
+              // 세종시청
+              {
+                type: 'Feature',
+                properties: {
+                  title: '세종시청',
+                  type: 'city-hall',
+                  description: '세종특별자치시청 본청사'
+                },
+                geometry: {
+                  type: 'Point',
+                  coordinates: [127.288955, 36.479748]
+                }
+              },
+              // 주차장들
+              ...parkingLots.map(parking => ({
+                type: 'Feature',
+                properties: {
+                  title: parking.name,
+                  type: 'parking',
+                  totalSpaces: parking.totalSpaces,
+                  occupiedSpaces: parking.occupiedSpaces,
+                  availableSpaces: parking.totalSpaces - parking.occupiedSpaces,
+                  id: parking.id
+                },
+                geometry: {
+                  type: 'Point',
+                  coordinates: [parking.coordinates.lng, parking.coordinates.lat]
+                }
+              })),
+              // CCTV들
+              ...cctvCameras.map(cctv => ({
+                type: 'Feature',
+                properties: {
+                  title: cctv.name,
+                  type: 'cctv',
+                  status: cctv.status,
+                  id: cctv.id
+                },
+                geometry: {
+                  type: 'Point',
+                  coordinates: [cctv.coordinates.lng, cctv.coordinates.lat]
+                }
+              }))
+            ]
+          };
 
-          // 주차장 마커들 (파란색)
-          parkingLots.forEach((parking, index) => {
-            console.log(`주차장 마커 ${index + 1} 생성 중:`, parking.name);
-            
-            const marker = new mapboxgl.Marker({ 
-              color: '#3b82f6', 
-              scale: 1.2 
-            })
-              .setLngLat([parking.coordinates.lng, parking.coordinates.lat])
-              .setPopup(new mapboxgl.Popup().setHTML(`
-                <div style="color: #1f2937;">
-                  <div style="font-weight: 600; margin-bottom: 4px;">${parking.name}</div>
-                  <div style="font-size: 0.875rem; color: #4b5563;">
-                    사용가능: ${parking.totalSpaces - parking.occupiedSpaces}면 / 총 ${parking.totalSpaces}면
-                  </div>
-                </div>
-              `))
-              .addTo(map.current!);
+          // 기존 소스와 레이어 제거 (안전하게)
+          try {
+            if (map.current.getLayer('markers-city-hall')) {
+              map.current.removeLayer('markers-city-hall');
+            }
+            if (map.current.getLayer('markers-parking')) {
+              map.current.removeLayer('markers-parking');
+            }
+            if (map.current.getLayer('markers-cctv')) {
+              map.current.removeLayer('markers-cctv');
+            }
+            if (map.current.getSource('markers')) {
+              map.current.removeSource('markers');
+            }
+          } catch (error) {
+            console.log('기존 레이어/소스 정리 중 무시 가능한 오류:', error);
+          }
 
-            console.log(`✅ ${parking.name} 마커 추가 완료:`, [parking.coordinates.lng, parking.coordinates.lat]);
-
-            // 마커 클릭 이벤트
-            marker.getElement().addEventListener('click', () => {
-              setSelectedParking(parking);
-            });
+          // 소스 추가
+          map.current.addSource('markers', {
+            type: 'geojson',
+            data: geojsonData
           });
 
-          // CCTV 마커들 (빨간색)
-          cctvCameras.forEach((cctv, index) => {
-            console.log(`CCTV 마커 ${index + 1} 생성 중:`, cctv.name);
-            
-            const marker = new mapboxgl.Marker({ 
-              color: '#ef4444', 
-              scale: 1.0 
-            })
-              .setLngLat([cctv.coordinates.lng, cctv.coordinates.lat])
-              .setPopup(new mapboxgl.Popup().setHTML(`
-                <div style="color: #1f2937;">
-                  <div style="font-weight: 600; margin-bottom: 4px;">${cctv.name}</div>
-                  <div style="font-size: 0.875rem; color: #4b5563;">
-                    상태: ${cctv.status === 'active' ? '정상' : '오류'}
-                  </div>
-                </div>
-              `))
-              .addTo(map.current!);
-
-            console.log(`✅ ${cctv.name} 마커 추가 완료:`, [cctv.coordinates.lng, cctv.coordinates.lat]);
+          // 세종시청 레이어 (노란색 원)
+          map.current.addLayer({
+            id: 'markers-city-hall',
+            type: 'circle',
+            source: 'markers',
+            filter: ['==', ['get', 'type'], 'city-hall'],
+            paint: {
+              'circle-radius': 15,
+              'circle-color': '#fbbf24',
+              'circle-stroke-width': 3,
+              'circle-stroke-color': '#ffffff'
+            }
           });
 
-          console.log('🎉 모든 마커 추가 완료!');
+          // 주차장 레이어 (파란색 원)
+          map.current.addLayer({
+            id: 'markers-parking',
+            type: 'circle',
+            source: 'markers',
+            filter: ['==', ['get', 'type'], 'parking'],
+            paint: {
+              'circle-radius': 12,
+              'circle-color': '#3b82f6',
+              'circle-stroke-width': 2,
+              'circle-stroke-color': '#ffffff'
+            }
+          });
+
+          // CCTV 레이어 (빨간색 원)
+          map.current.addLayer({
+            id: 'markers-cctv',
+            type: 'circle',
+            source: 'markers',
+            filter: ['==', ['get', 'type'], 'cctv'],
+            paint: {
+              'circle-radius': 8,
+              'circle-color': '#ef4444',
+              'circle-stroke-width': 2,
+              'circle-stroke-color': '#ffffff'
+            }
+          });
+
+          // 마커 클릭 이벤트 추가
+          map.current.on('click', 'markers-parking', (e) => {
+            // 모든 선택 상태 해제
+            setSelectedParking(null);
+            setSelectedCCTVId(null);
+
+            const feature = e.features?.[0];
+            if (feature) {
+              const parkingId = feature.properties?.id;
+              const parking = parkingLots.find(p => p.id === parkingId);
+              if (parking) {
+                setSelectedParking(parking);
+                
+                // 팝업 표시
+                // new mapboxgl.Popup()
+                //   .setLngLat(e.lngLat)
+                //   .setHTML(`
+                //     <div style="color: #1f2937; padding: 8px;">
+                //       <div style="font-weight: 600; margin-bottom: 4px;">${parking.name}</div>
+                //       <div style="font-size: 0.875rem; color: #4b5563;">
+                //         사용가능: ${parking.totalSpaces - parking.occupiedSpaces}면 / 총 ${parking.totalSpaces}면
+                //       </div>
+                //     </div>
+                //   `)
+                //   .addTo(map.current!);
+              }
+            }
+          });
+
+          map.current.on('click', 'markers-city-hall', (e) => {
+            // 모든 선택 상태 해제
+            setSelectedParking(null);
+            setSelectedCCTVId(null);
+            
+            // 팝업 표시
+            // new mapboxgl.Popup()
+            //   .setLngLat(e.lngLat)
+            //   .setHTML('<div style="color: #1f2937; font-weight: 600; padding: 8px;">세종시청</div>')
+            //   .addTo(map.current!);
+          });
+
+          map.current.on('click', 'markers-cctv', (e) => {
+            // 모든 선택 상태 해제
+            setSelectedParking(null);
+            setSelectedCCTVId(null);
+            const feature = e.features?.[0];
+            if (feature) {
+              const cctvId = feature.properties?.id;
+              const cctv = cctvCameras.find(c => c.id === cctvId);
+              if (cctv) {
+                // 우측 목록에서 선택된 상태로 표시
+                setSelectedCCTVId(cctv.id);
+                
+                // 팝업 표시
+                // new mapboxgl.Popup()
+                //   .setLngLat(e.lngLat)
+                //   .setHTML(`
+                //     <div style="color: #1f2937; padding: 8px;">
+                //       <div style="font-weight: 600; margin-bottom: 4px;">${cctv.name}</div>
+                //       <div style="font-size: 0.875rem; color: #4b5563;">
+                //         상태: ${cctv.status === 'active' ? '정상' : '오류'}
+                //       </div>
+                //     </div>
+                //   `)
+                //   .addTo(map.current!);
+              }
+            }
+          });
+
+          // 마우스 커서 변경
+          map.current.on('mouseenter', 'markers-parking', () => {
+            map.current!.getCanvas().style.cursor = 'pointer';
+          });
+          map.current.on('mouseleave', 'markers-parking', () => {
+            map.current!.getCanvas().style.cursor = '';
+          });
+
+          map.current.on('mouseenter', 'markers-cctv', () => {
+            map.current!.getCanvas().style.cursor = 'pointer';
+          });
+          map.current.on('mouseleave', 'markers-cctv', () => {
+            map.current!.getCanvas().style.cursor = '';
+          });
+
+          map.current.on('mouseenter', 'markers-city-hall', () => {
+            map.current!.getCanvas().style.cursor = 'pointer';
+          });
+          map.current.on('mouseleave', 'markers-city-hall', () => {
+            map.current!.getCanvas().style.cursor = '';
+          });
+
+          console.log('✅ Mapbox 내장 마커 시스템으로 마커 추가 완료!');
+          markersAdded.current = true; // 마커 추가 완료 플래그 설정
 
         } catch (error) {
-          console.error('마커 추가 중 오류:', error);
+          console.error('Mapbox 마커 추가 중 오류:', error);
         }
       };
 
-      // 여러 이벤트에서 마커 추가 시도
-      map.current.on('load', () => {
-        console.log('지도 load 이벤트 발생');
-        setTimeout(addAllMarkers, 1000);
-      });
-
+      // 지도 스타일 로드 완료 후 한 번만 마커 추가
       map.current.on('style.load', () => {
         console.log('지도 style.load 이벤트 발생');
-        setTimeout(addAllMarkers, 500);
+        setTimeout(() => {
+          if (!markersAdded.current) {
+            addMapboxMarkers();
+          }
+        }, 500);
       });
 
-      map.current.on('sourcedata', (e) => {
-        if (e.isSourceLoaded) {
-          console.log('지도 sourcedata 이벤트 발생');
-          setTimeout(addAllMarkers, 200);
-        }
-      });
-
-      // 강제로 일정 시간 후 마커 추가 시도
+      // 백업: 만약 style.load가 실행되지 않았다면 3초 후 시도
       setTimeout(() => {
-        console.log('강제 마커 추가 시도 (3초 후)');
-        addAllMarkers();
+        if (!markersAdded.current) {
+          console.log('백업 마커 추가 시도 (3초 후)');
+          addMapboxMarkers();
+        }
       }, 3000);
     }
 
     return () => {
+      // 플래그 리셋
+      markersAdded.current = false;
+      
+      // 지도 정리
       if (map.current) {
         map.current.remove();
         map.current = null;
@@ -259,7 +406,6 @@ export default function App() {
 
   const totalSpaces = parkingLots.reduce((sum, lot) => sum + lot.totalSpaces, 0);
   const totalOccupied = parkingLots.reduce((sum, lot) => sum + lot.occupiedSpaces, 0);
-  const totalAvailable = totalSpaces - totalOccupied;
 
   return (
     <div className="dark h-screen flex flex-col lg:flex-row bg-gray-900 text-white">
@@ -401,8 +547,13 @@ export default function App() {
                     <Button
                     key={cctv.id}
                     variant="outline"
-                    className="w-full flex items-center justify-start p-3 border-gray-600 hover:bg-gray-600 transition-colors text-left"
-                    onClick={() => flyToLocation(cctv.coordinates.lng, cctv.coordinates.lat, 18)}
+                    className={`w-full flex items-center justify-start p-3 border-gray-600 hover:bg-gray-600 transition-colors text-left ${
+                      selectedCCTVId === cctv.id ? 'ring-2 ring-blue-500 bg-gray-700' : ''
+                    }`}
+                    onClick={() => {
+                      setSelectedCCTVId(cctv.id);
+                      flyToLocation(cctv.coordinates.lng, cctv.coordinates.lat, 18);
+                    }}
                   >
                     <Camera className="w-4 h-4 mr-2" />
                     <span className="flex-1">{cctv.name}</span>
@@ -430,6 +581,6 @@ export default function App() {
             coordinates: [selectedCCTV.coordinates.lng, selectedCCTV.coordinates.lat]
           } : null}
         />
-      </div>
-    );
-  }
+    </div>
+  );
+}

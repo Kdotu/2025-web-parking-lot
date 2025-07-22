@@ -35,8 +35,6 @@
     "components/**/*.tsx",
     "utils/**/*.ts",
     "utils/**/*.tsx",
-    "supabase/**/*.ts",
-    "supabase/**/*.tsx",
     "styles/**/*.ts",
     "styles/**/*.tsx",
     "*.ts",
@@ -47,7 +45,8 @@
     "node_modules",
     "dist",
     "build",
-    "vite.config.ts"
+    "vite.config.ts",
+    "supabase/**/*"
   ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

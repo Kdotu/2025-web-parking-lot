@@ -21,6 +21,7 @@ const parkingLots = [
     totalSpaces: 80,
     occupiedSpaces: 62,
     coordinates: [-73.991593, 40.741121],
+ 
     lastUpdated: new Date(),
     type: 'public'
   },
@@ -63,7 +64,7 @@ const cctvCameras = [
 interface ParkingDashboardProps {}
 
 export default function ParkingDashboard({}: ParkingDashboardProps) {
-  const [selectedParking, setSelectedParking] = useState(null);
+  const [selectedParking, setSelectedParking] = useState<any>(null);
   const [realTimeData, setRealTimeData] = useState(parkingLots);
 
   // Simulate real-time updates
@@ -80,20 +81,20 @@ export default function ParkingDashboard({}: ParkingDashboardProps) {
     return () => clearInterval(interval);
   }, []);
 
-  const handleParkingClick = (parking) => {
+  const handleParkingClick = (parking: any) => {
     setSelectedParking(parking);
   };
 
-  const handleCCTVClick = (cctv) => {
+  const handleCCTVClick = (cctv: any) => {
     // In a real app, this would navigate to a CCTV streaming page
     window.open(`/cctv/${cctv.id}`, '_blank');
   };
 
-  const getOccupancyRate = (occupied, total) => {
+  const getOccupancyRate = (occupied: number, total: number) => {
     return Math.round((occupied / total) * 100);
   };
 
-  const getOccupancyColor = (rate) => {
+  const getOccupancyColor = (rate: number) => {
     if (rate < 60) return 'bg-green-500';
     if (rate < 85) return 'bg-yellow-500';
     return 'bg-red-500';
