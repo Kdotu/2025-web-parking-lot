@@ -68,7 +68,6 @@ mapboxgl.accessToken = 'pk.eyJ1Ijoic3lraW0wNTA4IiwiYSI6ImNtZDZvb3E1NzAyOWcybHB5N
 export default function App() {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
-  const markersAdded = useRef(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [selectedParking, setSelectedParking] = useState<ParkingLot | null>(null);
   const [selectedCCTVId, setSelectedCCTVId] = useState<number | null>(null);
