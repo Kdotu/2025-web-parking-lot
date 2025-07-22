@@ -68,7 +68,10 @@ export default function CCTVModal({ isOpen, onClose, camera }: CCTVModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] bg-gray-900 text-white border-gray-700 p-0 !sm:max-w-none">
+      <DialogContent
+        className="fixed top-[50%] left-[50%] z-50 grid translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border shadow-lg duration-200 bg-gray-900 text-white border-gray-700 p-0"
+        style={{ maxWidth: '95vw', width: '95vw', height: '90vh' }}
+      >
         <DialogHeader className="border-b border-gray-700 pb-4 p-6">
           <DialogTitle className="text-2xl text-white flex items-center gap-3">
             <Camera className="w-6 h-6 text-red-500" />
