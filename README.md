@@ -1,6 +1,6 @@
 # 세종시청 주차장 현황 대시보드
 
-세종시청의 실시간 주차장 현황과 CCTV 모니터링을 제공하는 스마트 대시보드입니다.
+세종시청의 실시간 주차장 현황과 CCTV 모니터링을 제공하는 스마트 대시보드
 
 ## 🚀 주요 기능
 
@@ -138,22 +138,3 @@ npm run build
 # dist 폴더를 Netlify에 업로드
 ```
 
-## 📝 라이선스
-
-이 프로젝트는 MIT 라이선스 하에 배포됩니다.
-
-## 🤝 기여
-
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## 📞 문의
-
-프로젝트에 대한 문의사항이 있으시면 이슈를 생성해 주세요.
-
----
-
-**세종시청 스마트시티 프로젝트** 🏛️
