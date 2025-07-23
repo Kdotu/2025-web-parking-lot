@@ -3,15 +3,22 @@ import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { MapPin, Camera, Car, Clock, Users } from 'lucide-react';
+import mapboxgl from 'mapbox-gl';
+import { useRef } from 'react';
+
+
+
+// 세종시청 좌표 (공통 관리)
+export const SEJONG_CITY_HALL_COORD = { lat: 36.479359, lng: 127.287068 };
 
 // Mock data for parking lots
-const parkingLots = [
+export const parkingLots = [
   {
     id: 1,
     name: '세종시청 주차장 A동',
     totalSpaces: 120,
     occupiedSpaces: 85,
-    coordinates: [-73.990593, 40.740121],
+    coordinates: { lat: 36.479359, lng: 127.287068 },
     lastUpdated: new Date(),
     type: 'public'
   },
@@ -20,45 +27,40 @@ const parkingLots = [
     name: '세종시청 주차장 B동',
     totalSpaces: 80,
     occupiedSpaces: 62,
-    coordinates: [-73.991593, 40.741121],
- 
+    coordinates: { lat: 36.480324, lng: 127.290896 },
     lastUpdated: new Date(),
     type: 'public'
   },
-  {
-    id: 3,
-    name: '세종시청 방문객 주차장',
-    totalSpaces: 150,
-    occupiedSpaces: 134,
-    coordinates: [-73.989593, 40.739121],
-    lastUpdated: new Date(),
-    type: 'visitor'
-  }
+  // {
+  //   id: 3,
+  //   name: '세종시청 방문객 주차장',
+  //   totalSpaces: 150,
+  //   occupiedSpaces: 134,
+  //   coordinates: { lat: 36.479748, lng: 127.288955 },
+  //   lastUpdated: new Date(),
+  //   type: 'visitor'
+  // }
 ];
 
 // Mock CCTV data
-const cctvCameras = [
+export const cctvCameras = [
+  // {
+  //   id: 1,
+  //   name: '세종로 교차로 CCTV',
+  //   coordinates: { lat: 36.478991, lng: 127.289528 },
+  //   status: 'active',
+  //   direction: 'north',
+  //   lastUpdated: new Date().toISOString()
+  // },
   {
     id: 1,
-    name: '세종로 교차로 CCTV',
-    coordinates: [-73.992593, 40.741621],
-    status: 'active',
-    direction: 'north'
-  },
-  {
-    id: 2,
     name: '시청앞 대로 CCTV',
-    coordinates: [-73.988593, 40.738621],
+    coordinates: { lat: 36.479200, lng: 127.288800 },
     status: 'active', 
-    direction: 'east'
+    direction: 'east',
+    lastUpdated: new Date().toISOString()
   },
-  {
-    id: 3,
-    name: '정부청사로 CCTV',
-    coordinates: [-73.991093, 40.742121],
-    status: 'active',
-    direction: 'west'
-  }
+  
 ];
 
 interface ParkingDashboardProps {}
@@ -66,8 +68,82 @@ interface ParkingDashboardProps {}
 export default function ParkingDashboard({}: ParkingDashboardProps) {
   const [selectedParking, setSelectedParking] = useState<any>(null);
   const [realTimeData, setRealTimeData] = useState(parkingLots);
+  const mapContainer = useRef<HTMLDivElement>(null);
+  const map = useRef<mapboxgl.Map | null>(null);
 
-  // Simulate real-time updates
+  useEffect(() => {
+    if (map.current) return;
+    if (!mapContainer.current) return;
+
+    mapboxgl.accessToken = 'pk.eyJ1Ijoic3lraW0wNTA4IiwiYSI6ImNtZDZvb3E1NzAyOWcybHB5N3F1YjVkdHcifQ.bxzRFIVXGnh4EzRhjXHx8Q';
+    map.current = new mapboxgl.Map({
+      container: mapContainer.current,
+      style: 'mapbox://styles/sykim0508/cmde130k503d201rf2ivhccls',
+      center: [SEJONG_CITY_HALL_COORD.lng, SEJONG_CITY_HALL_COORD.lat],
+      zoom: 15,
+      minZoom: 12,
+      maxZoom: 18,
+      projection: 'mercator'
+    });
+
+    let markerObjs: mapboxgl.Marker[] = [];
+
+    const addMarkers = () => {
+      markerObjs.forEach(m => m.remove());
+      markerObjs = [];
+
+      // 주차장 마커
+      realTimeData.forEach((parking) => {
+        const el = document.createElement('div');
+        el.innerHTML = `
+          <div style="background:#2563eb;border:3px solid #fff;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px #0002;">
+            <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#2563eb"/><rect x="8" y="8" width="8" height="8" rx="2" fill="#fff"/></svg>
+          </div>
+        `;
+        el.style.cursor = 'pointer';
+        console.log('주차장 마커 생성 좌표:', parking.coordinates.lng, parking.coordinates.lat);
+        const marker = new mapboxgl.Marker(el, { anchor: 'bottom' })
+          .setLngLat([parking.coordinates.lng, parking.coordinates.lat])
+          .addTo(map.current!);
+        markerObjs.push(marker);
+        el.addEventListener('click', () => {
+          setSelectedParking(parking);
+          map.current!.flyTo({ center: [parking.coordinates.lng, parking.coordinates.lat], zoom: 17, duration: 1000 });
+        });
+      });
+
+      // CCTV 마커
+      cctvCameras.forEach((cctv) => {
+        const el = document.createElement('div');
+        el.innerHTML = `
+          <div style="background:#ef4444;border:3px solid #fff;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px #0002;">
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#ef4444"/><rect x="8" y="8" width="8" height="8" rx="2" fill="#fff"/></svg>
+          </div>
+        `;
+        el.style.cursor = 'pointer';
+        console.log('CCTV 마커 생성 좌표:', cctv.coordinates.lng, cctv.coordinates.lat);
+        const marker = new mapboxgl.Marker(el, { anchor: 'bottom' })
+          .setLngLat([cctv.coordinates.lng, cctv.coordinates.lat])
+          .addTo(map.current!);
+        markerObjs.push(marker);
+        el.addEventListener('click', () => {
+          map.current!.flyTo({ center: [cctv.coordinates.lng, cctv.coordinates.lat], zoom: 17, duration: 1000 });
+        });
+      });
+    };
+
+    map.current.on('style.load', addMarkers);
+
+    return () => {
+      markerObjs.forEach(m => m.remove());
+      if (map.current) {
+        map.current.remove();
+        map.current = null;
+      }
+    };
+  }, [realTimeData]);
+
+  // 실시간 데이터 업데이트 (기존 유지)
   useEffect(() => {
     const interval = setInterval(() => {
       setRealTimeData(prev => prev.map(lot => ({
@@ -76,8 +152,7 @@ export default function ParkingDashboard({}: ParkingDashboardProps) {
           lot.occupiedSpaces + Math.floor(Math.random() * 6) - 3)),
         lastUpdated: new Date()
       })));
-    }, 10000); // Update every 10 seconds
-
+    }, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -102,93 +177,12 @@ export default function ParkingDashboard({}: ParkingDashboardProps) {
 
   return (
     <div className="h-screen flex flex-col lg:flex-row bg-gray-900 text-white">
-      {/* Map Container */}
+      {/* Mapbox 지도 컨테이너 */}
       <div className="flex-1 relative">
-        {/* Mapbox Map Placeholder */}
-        <div className="w-full h-full bg-gray-800 relative overflow-hidden">
-          {/* Dark themed map background */}
-          <div className="absolute inset-0 bg-gradient-to-br from-gray-800 via-gray-900 to-black opacity-90"></div>
-          
-          {/* Mock map grid */}
-          <div className="absolute inset-0 opacity-20">
-            <div className="grid grid-cols-20 grid-rows-20 h-full w-full">
-              {Array.from({ length: 400 }).map((_, i) => (
-                <div key={i} className="border border-gray-600 border-opacity-30"></div>
-              ))}
-            </div>
-          </div>
-
-          {/* Map Legend */}
-          <div className="absolute top-4 left-4 bg-gray-800 bg-opacity-90 p-4 rounded-lg">
-            <h3 className="mb-2">범례</h3>
-            <div className="space-y-2">
-              <div className="flex items-center space-x-2">
-                <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
-                <span className="text-sm">주차장</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-4 h-4 bg-red-500 rounded-full"></div>
-                <span className="text-sm">CCTV</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Parking Markers */}
-          {realTimeData.map((parking) => (
-            <div
-              key={parking.id}
-              className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer"
-              style={{
-                left: `${50 + (parking.id - 2) * 15}%`,
-                top: `${50 + (parking.id - 2) * 10}%`
-              }}
-              onClick={() => handleParkingClick(parking)}
-            >
-              <div className="relative group">
-                <div className="w-8 h-8 bg-blue-500 rounded-full border-2 border-white shadow-lg flex items-center justify-center hover:bg-blue-600 transition-colors">
-                  <Car className="w-4 h-4 text-white" />
-                </div>
-                <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-2 py-1 rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
-                  {parking.name}
-                </div>
-              </div>
-            </div>
-          ))}
-
-          {/* CCTV Markers */}
-          {cctvCameras.map((cctv) => (
-            <div
-              key={cctv.id}
-              className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer"
-              style={{
-                left: `${45 + cctv.id * 12}%`,
-                top: `${40 + cctv.id * 8}%`
-              }}
-              onClick={() => handleCCTVClick(cctv)}
-            >
-              <div className="relative group">
-                <div className="w-6 h-6 bg-red-500 rounded-full border-2 border-white shadow-lg flex items-center justify-center hover:bg-red-600 transition-colors">
-                  <Camera className="w-3 h-3 text-white" />
-                </div>
-                <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-2 py-1 rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
-                  {cctv.name}
-                </div>
-              </div>
-            </div>
-          ))}
-
-          {/* Center marker for 세종시청 */}
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-            <div className="w-12 h-12 bg-yellow-500 rounded-full border-4 border-white shadow-lg flex items-center justify-center">
-              <MapPin className="w-6 h-6 text-white" />
-            </div>
-            <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-yellow-500 text-white px-3 py-1 rounded text-sm whitespace-nowrap">
-              세종시청
-            </div>
-          </div>
-        </div>
+        <div ref={mapContainer} className="w-full h-full" />
+        {/* 범례 등 기존 UI 필요시 추가 */}
       </div>
-
+      {/* 사이드 패널 등 기존 UI 유지 */}
       {/* Side Panel */}
       <div className="w-full lg:w-96 bg-gray-800 border-l border-gray-700 flex flex-col">
         {/* Header */}
@@ -206,7 +200,8 @@ export default function ParkingDashboard({}: ParkingDashboardProps) {
                 <div>
                   <p className="text-sm text-gray-400">총 주차면</p>
                   <p className="text-xl">
-                    {realTimeData.reduce((sum, lot) => sum + lot.totalSpaces, 0)}
+                    {/* {realTimeData.reduce((sum, lot) => sum + lot.totalSpaces, 0)} */}
+                    n
                   </p>
                 </div>
               </div>
@@ -215,9 +210,10 @@ export default function ParkingDashboard({}: ParkingDashboardProps) {
               <div className="flex items-center space-x-2">
                 <Users className="w-5 h-5 text-green-400" />
                 <div>
-                  <p className="text-sm text-gray-400">사용중</p>
+               ata<p className="text-sm text-gray-400">사용중</p>
                   <p className="text-xl">
-                    {realTimeData.reduce((sum, lot) => sum + lot.occupiedSpaces, 0)}
+                    {/* {realTimeData.reduce((sum, lot) => sum + lot.occupiedSpaces, 0)} */}
+                    m
                   </p>
                 </div>
               </div>

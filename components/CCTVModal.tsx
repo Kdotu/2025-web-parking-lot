@@ -37,14 +37,41 @@ export default function CCTVModal({ isOpen, onClose, camera }: CCTVModalProps) {
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  // Pyodide 관련 상태
+  const [pyodide, setPyodide] = useState<any>(null);
+  const [pyResult, setPyResult] = useState<string>('');
+  const [pyodideLoading, setPyodideLoading] = useState(false);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-
-    return () => clearInterval(interval);
+    // pyodide가 window에 이미 로드되어 있는지 확인
+    if (!(window as any).loadPyodide) {
+      // pyodide.js가 없으면 동적으로 추가
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js';
+      script.onload = () => {
+        (window as any).loadPyodide({ indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.25.1/full/' }).then((py: any) => {
+          setPyodide(py);
+        });
+      };
+      document.body.appendChild(script);
+    } else {
+      (window as any).loadPyodide({ indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.25.1/full/' }).then((py: any) => {
+        setPyodide(py);
+      });
+    }
   }, []);
+
+  const runPython = async () => {
+    if (!pyodide) return;
+    setPyodideLoading(true);
+    try {
+      const result = await pyodide.runPythonAsync(`\nimport math\nmath.sqrt(16)\n`);
+      setPyResult(result.toString());
+    } catch (e) {
+      setPyResult('에러: ' + (e as Error).message);
+    }
+    setPyodideLoading(false);
+  };
 
   if (!camera) return null;
 
@@ -90,6 +117,17 @@ export default function CCTVModal({ isOpen, onClose, camera }: CCTVModalProps) {
         </DialogHeader>
 
         <div className="flex flex-col xl:flex-row gap-6 flex-1 overflow-hidden p-6">
+          {/* Pyodide 테스트 UI */}
+          {/* <div className="mb-4">
+            <button
+              className="px-3 py-1 bg-blue-600 rounded text-white mr-2 disabled:opacity-50"
+              onClick={runPython}
+              disabled={!pyodide || pyodideLoading}
+            >
+              {pyodideLoading ? '실행 중...' : '파이썬 실행 (math.sqrt(16))'}
+            </button>
+            <span className="ml-2 text-green-400">결과: {pyResult}</span>
+          </div> */}
           {/* Video Section */}
           <div className="flex-1 flex flex-col">
             {/* Video Container */}
@@ -98,17 +136,18 @@ export default function CCTVModal({ isOpen, onClose, camera }: CCTVModalProps) {
               <div className="w-full h-full bg-gradient-to-br from-gray-800 via-gray-900 to-black flex flex-col items-center justify-center relative overflow-hidden">
                 {/* Grid Background */}
                 <div className="absolute inset-0 opacity-10">
-                  <div className="grid grid-cols-20 grid-rows-15 h-full w-full">
-                    {Array.from({ length: 300 }).map((_, i) => (
+                <video src="components/CCTV/input_video.mp4" className="w-full h-full object-cover" autoPlay muted />
+                  {/* <div className="grid grid-cols-20 grid-rows-15 h-full w-full"> 
+                     {Array.from({ length: 300 }).map((_, i) => (
                       <div key={i} className="border border-gray-600 border-opacity-30"></div>
-                    ))}
-                  </div>
+                    ))} 
+                  </div> */}
                 </div>
 
                 {/* Video Status */}
                 <div className="relative z-10 text-center">
                   <div className="w-20 h-20 bg-red-500 rounded-full border-4 border-white shadow-lg flex items-center justify-center mb-6 animate-pulse">
-                    <Camera className="w-10 h-10 text-white" />
+                    <Camera className="w-10 h-10 text-white" />                    
                   </div>
                   <h3 className="text-2xl mb-3">실시간 영상 스트리밍</h3>
                   <p className="text-gray-400 max-w-md">

@@ -5,6 +5,7 @@ import { Badge } from './components/ui/badge';
 import { Button } from './components/ui/button';
 import { Camera, Car, Clock, Users } from 'lucide-react';
 import CCTVModal from './components/CCTVModal';
+import { SEJONG_CITY_HALL_COORD, parkingLots, cctvCameras } from './components/ParkingDashboard';
 
 // Types
 type ParkingLot = {
@@ -12,7 +13,6 @@ type ParkingLot = {
   name: string;
   totalSpaces: number;
   occupiedSpaces: number;
-  position: { left: string; top: string };
   coordinates: { lat: number; lng: number };
   lastUpdated: Date;
 };
@@ -20,47 +20,11 @@ type ParkingLot = {
 type CCTVCamera = {
   id: number;
   name: string;
-  position: { left: string; top: string };
   coordinates: { lat: number; lng: number };
   status: string;
   direction: string;
   lastUpdated: string;
 };
-
-// Mock data for parking lots with real coordinates
-const parkingLots: ParkingLot[] = [
-  {
-    id: 1,
-    name: '세종시청 주차장 A동',
-    totalSpaces: 120,
-    occupiedSpaces: 85,
-    position: { left: '35%', top: '40%' },
-    coordinates: { lat: 36.479359, lng: 127.287068 },
-    lastUpdated: new Date(),
-  },
-  {
-    id: 2,
-    name: '세종시청 주차장 B동',
-    totalSpaces: 80,
-    occupiedSpaces: 62,
-    position: { left: '50%', top: '50%' },
-    coordinates: { lat: 36.480324, lng: 127.290896 },
-    lastUpdated: new Date(),
-  }
-];
-
-// Mock CCTV data with real coordinates
-const cctvCameras: CCTVCamera[] = [
-  {
-    id: 1,
-    name: '시청앞 대로 CCTV',
-    position: { left: '69%', top: '56%' },
-    coordinates: { lat: 36.478991, lng: 127.289528 },
-    status: 'active',
-    direction: 'northwest',
-    lastUpdated: new Date().toISOString()
-  }
-];
 
 // Mapbox 설정
 mapboxgl.accessToken = 'pk.eyJ1Ijoic3lraW0wNTA4IiwiYSI6ImNtZDZvb3E1NzAyOWcybHB5N3F1YjVkdHcifQ.bxzRFIVXGnh4EzRhjXHx8Q';
@@ -82,10 +46,11 @@ export default function App() {
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/sykim0508/cmde130k503d201rf2ivhccls',
-      center: [127.288955, 36.479748],
-      zoom: 15,
+      center: [SEJONG_CITY_HALL_COORD.lng, SEJONG_CITY_HALL_COORD.lat],
+      zoom: 16,
       minZoom: 12,
-      maxZoom: 18
+      maxZoom: 18,
+      projection: 'mercator'
     });
 
     let markerObjs: mapboxgl.Marker[] = [];
@@ -106,15 +71,16 @@ export default function App() {
         </div>
         <div style="margin-top:6px;background:#fbbf24;color:#fff;padding:2px 12px;border-radius:4px;font-weight:600;font-size:15px;">세종시청</div>
       `;
-      const cityMarker = new mapboxgl.Marker(cityEl)
-        .setLngLat([127.288955, 36.479748])
+      console.log('세종시청 마커 생성 좌표:', SEJONG_CITY_HALL_COORD.lng, SEJONG_CITY_HALL_COORD.lat);
+      const cityMarker = new mapboxgl.Marker(cityEl, { anchor: 'bottom' })
+        .setLngLat([SEJONG_CITY_HALL_COORD.lng, SEJONG_CITY_HALL_COORD.lat])
         .addTo(map.current!);
       markerObjs.push(cityMarker);
       cityEl.style.cursor = 'pointer';
       cityEl.addEventListener('click', () => {
         setSelectedParking(null);
         setSelectedCCTVId(null);
-        map.current!.flyTo({ center: [127.288955, 36.479748], zoom: 15, duration: 1000 });
+        map.current!.flyTo({ center: [SEJONG_CITY_HALL_COORD.lng, SEJONG_CITY_HALL_COORD.lat], zoom: 17, duration: 1000 });
       });
 
       // 주차장 마커
@@ -126,7 +92,8 @@ export default function App() {
           </div>
         `;
         el.style.cursor = 'pointer';
-        const marker = new mapboxgl.Marker(el)
+        console.log('주차장 마커 생성 좌표:', parking.coordinates.lng, parking.coordinates.lat);
+        const marker = new mapboxgl.Marker(el, { anchor: 'bottom' })
           .setLngLat([parking.coordinates.lng, parking.coordinates.lat])
           .addTo(map.current!);
         markerObjs.push(marker);
@@ -146,14 +113,15 @@ export default function App() {
           </div>
         `;
         el.style.cursor = 'pointer';
-        const marker = new mapboxgl.Marker(el)
+        console.log('CCTV 마커 생성 좌표:', cctv.coordinates.lng, cctv.coordinates.lat);
+        const marker = new mapboxgl.Marker(el, { anchor: 'bottom' })
           .setLngLat([cctv.coordinates.lng, cctv.coordinates.lat])
           .addTo(map.current!);
         markerObjs.push(marker);
         el.addEventListener('click', () => {
           setSelectedCCTVId(cctv.id);
           setSelectedParking(null);
-          map.current!.flyTo({ center: [cctv.coordinates.lng, cctv.coordinates.lat], zoom: 18, duration: 1000 });
+          map.current!.flyTo({ center: [cctv.coordinates.lng, cctv.coordinates.lat], zoom: 17, duration: 1000 });
         });
       });
     };
@@ -206,6 +174,14 @@ export default function App() {
     }
   };
 
+  // 지도 방위(베어링) 및 각도(피치) 초기화 함수
+  const resetBearing = () => {
+    if (map.current) {
+      map.current.setBearing(0);
+      map.current.setPitch(0);
+    }
+  };
+
   // CCTV 모달 열기 함수
   const openCCTVModal = (cctv: CCTVCamera) => {
     setSelectedCCTV(cctv);
@@ -252,6 +228,16 @@ export default function App() {
           </div>
 
           {/* Zoom Controls */}
+          {/* Bearing Reset Button */}
+          <div className="absolute bottom-24 right-4 z-10">
+            <Button
+              onClick={resetBearing}
+              className="w-10 h-10 mb-4 bg-gray-800 bg-opacity-90 border border-gray-600 hover:bg-gray-700 text-white flex items-center justify-center"
+              variant="outline"
+            >
+              <span className="text-lg font-bold">↺</span>
+            </Button>
+          </div>
           <div className="absolute bottom-4 right-4 flex flex-col space-y-2 z-10">
             <Button
               onClick={zoomIn}
@@ -286,7 +272,8 @@ export default function App() {
                 <Car className="w-5 h-5 text-blue-400" />
                 <div>
                   <p className="text-sm text-gray-400">총 주차면</p>
-                  <p className="text-xl font-medium">{totalSpaces}</p>
+                  {/* <p className="text-xl font-medium">{totalSpaces}</p> */}
+                  <p className="text-xl font-medium">N</p>
                 </div>
               </div>
             </Card>
@@ -295,7 +282,8 @@ export default function App() {
                 <Users className="w-5 h-5 text-green-400" />
                 <div>
                   <p className="text-sm text-gray-400">사용중</p>
-                  <p className="text-xl font-medium">{totalOccupied}</p>
+                  {/* <p className="text-xl font-medium">{totalOccupied}</p> */}
+                  <p className="text-xl font-medium">M</p>
                 </div>
               </div>
             </Card>
@@ -311,7 +299,7 @@ export default function App() {
               const available = parking.totalSpaces - parking.occupiedSpaces;
               
               return (
-                                    <Card
+                    <Card
                       key={parking.id}
                       className={`bg-gray-700 border-gray-600 cursor-pointer transition-all hover:bg-gray-600 p-4 ${
                         selectedParking?.id === parking.id ? 'ring-2 ring-blue-500' : ''
@@ -331,12 +319,12 @@ export default function App() {
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-400">사용가능</span>
-                      <span className="text-red-400">{available}면</span>
+                      {/* <span className="text-red-400">{available}면</span> */}
                     </div>
                     
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-400">총 주차면</span>
-                      <span>{parking.totalSpaces}면</span>
+                      {/* <span>{parking.totalSpaces}면</span> */}
                     </div>
                     
                     <div className="w-full bg-gray-600 rounded-full h-2">
