@@ -71,7 +71,7 @@ export default function App() {
         </div>
         <div style="margin-top:6px;background:#fbbf24;color:#fff;padding:2px 12px;border-radius:4px;font-weight:600;font-size:15px;">세종시청</div>
       `;
-      console.log('세종시청 마커 생성 좌표:', SEJONG_CITY_HALL_COORD.lng, SEJONG_CITY_HALL_COORD.lat);
+      // console.log('세종시청 마커 생성 좌표:', SEJONG_CITY_HALL_COORD.lng, SEJONG_CITY_HALL_COORD.lat);
       const cityMarker = new mapboxgl.Marker(cityEl, { anchor: 'bottom' })
         .setLngLat([SEJONG_CITY_HALL_COORD.lng, SEJONG_CITY_HALL_COORD.lat])
         .addTo(map.current!);
@@ -92,7 +92,7 @@ export default function App() {
           </div>
         `;
         el.style.cursor = 'pointer';
-        console.log('주차장 마커 생성 좌표:', parking.coordinates.lng, parking.coordinates.lat);
+        // console.log('주차장 마커 생성 좌표:', parking.coordinates.lng, parking.coordinates.lat);
         const marker = new mapboxgl.Marker(el, { anchor: 'bottom' })
           .setLngLat([parking.coordinates.lng, parking.coordinates.lat])
           .addTo(map.current!);
@@ -113,7 +113,7 @@ export default function App() {
           </div>
         `;
         el.style.cursor = 'pointer';
-        console.log('CCTV 마커 생성 좌표:', cctv.coordinates.lng, cctv.coordinates.lat);
+        // console.log('CCTV 마커 생성 좌표:', cctv.coordinates.lng, cctv.coordinates.lat);
         const marker = new mapboxgl.Marker(el, { anchor: 'bottom' })
           .setLngLat([cctv.coordinates.lng, cctv.coordinates.lat])
           .addTo(map.current!);

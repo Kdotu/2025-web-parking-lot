@@ -65,7 +65,9 @@ export default function CCTVModal({ isOpen, onClose, camera }: CCTVModalProps) {
     if (!pyodide) return;
     setPyodideLoading(true);
     try {
-      const result = await pyodide.runPythonAsync(`\nimport math\nmath.sqrt(16)\n`);
+      const response = await fetch('/components/CCTV/execute_code.py');
+      const pythonCode = await response.text();
+      const result = await pyodide.runPythonAsync(pythonCode);
       setPyResult(result.toString());
     } catch (e) {
       setPyResult('에러: ' + (e as Error).message);
@@ -117,17 +119,6 @@ export default function CCTVModal({ isOpen, onClose, camera }: CCTVModalProps) {
         </DialogHeader>
 
         <div className="flex flex-col xl:flex-row gap-6 flex-1 overflow-hidden p-6">
-          {/* Pyodide 테스트 UI */}
-          {/* <div className="mb-4">
-            <button
-              className="px-3 py-1 bg-blue-600 rounded text-white mr-2 disabled:opacity-50"
-              onClick={runPython}
-              disabled={!pyodide || pyodideLoading}
-            >
-              {pyodideLoading ? '실행 중...' : '파이썬 실행 (math.sqrt(16))'}
-            </button>
-            <span className="ml-2 text-green-400">결과: {pyResult}</span>
-          </div> */}
           {/* Video Section */}
           <div className="flex-1 flex flex-col">
             {/* Video Container */}
@@ -232,6 +223,24 @@ export default function CCTVModal({ isOpen, onClose, camera }: CCTVModalProps) {
 
           {/* Info Panel */}
           <div className="w-full xl:w-96 flex flex-col gap-4 overflow-y-auto">
+            {/* Pyodide 테스트 UI */}
+            <Card className="bg-gray-800 border-gray-700 p-4">
+              <h3 className="flex items-center gap-2 mb-4 text-blue-400">
+                <MapPin className="w-5 h-5" />
+                파이썬 테스트
+              </h3>
+              <div className="mb-5">
+            <button
+              className="px-4 py-1 bg-blue-600 rounded text-white mr-2 disabled:opacity-50"
+              onClick={runPython}
+              disabled={!pyodide || pyodideLoading}
+            >
+              {pyodideLoading ? '실행 중...' : '파이썬 실행 (execute_code.py)'}
+            </button>
+            <br/>
+            <span className="ml-3 text-green-400">결과: {pyResult}</span>
+          </div>
+          </Card>
             {/* Camera Info */}
             <Card className="bg-gray-800 border-gray-700 p-4">
               <h3 className="flex items-center gap-2 mb-4 text-blue-400">
